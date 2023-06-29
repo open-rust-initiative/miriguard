@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use predicates::prelude::predicate;
 
 #[test]
 fn miriguard_without_subcmd() {
@@ -40,9 +41,9 @@ fn crate_memory_deallocation() {
     .arg("test")
     .assert();
 
-  assert
-    .failure()
-    .stderr("Error: error with memory deallocation\n");
+  assert.failure().stderr(predicate::str::starts_with(
+    "Error: error with memory deallocation >>>",
+  ));
 }
 
 #[test]
@@ -53,7 +54,7 @@ fn crate_raw_point_validity() {
     .args(["test", "initial"])
     .assert();
 
-  assert
-    .failure()
-    .stderr("Error: error with using invalid raw pointer\n");
+  assert.failure().stderr(predicate::str::starts_with(
+    "Error: error with using invalid raw pointer >>>",
+  ));
 }

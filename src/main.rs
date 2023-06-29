@@ -14,10 +14,10 @@ enum MiriGuardError {
   MissSubCmd,
   #[error("unrecognized subcommand `{0}`")]
   WrongSubCmd(String),
-  #[error("error with using invalid raw pointer")]
-  RawPointerUsage,
-  #[error("error with memory deallocation")]
-  MemoryFree,
+  #[error("error with using invalid raw pointer >>>>>\n{0}\n<<<<<")]
+  RawPointerUsage(String),
+  #[error("error with memory deallocation >>>>>\n{0}\n<<<<<")]
+  MemoryFree(String),
 }
 
 fn main() {
@@ -109,9 +109,9 @@ fn match_error_with_guidelines(error: &str) -> Result<(), MiriGuardError> {
     });
 
   if re_mem_free.is_match(error) {
-    Err(MiriGuardError::MemoryFree)
+    Err(MiriGuardError::MemoryFree(error.to_string()))
   } else if re_ptr_usage.is_match(error) {
-    Err(MiriGuardError::RawPointerUsage)
+    Err(MiriGuardError::RawPointerUsage(error.to_string()))
   } else {
     Ok(())
   }
