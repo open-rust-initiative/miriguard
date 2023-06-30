@@ -98,20 +98,29 @@ fn check_miri_error_output(miri_output: &str) -> Result<(), MiriGuardError> {
 }
 
 fn match_error_with_guidelines(error: &str) -> Result<(), MiriGuardError> {
-  static RE_MEM_FREE: OnceLock<Regex> = OnceLock::new();
-  static RE_PTR_USAGE: OnceLock<Regex> = OnceLock::new();
-  let re_mem_free = RE_MEM_FREE.get_or_init(|| {
-    Regex::new(r"error: Undefined Behavior: pointer to alloc\d+ was dereferenced after this allocation got free").unwrap()
-  });
-  let re_ptr_usage =
-    RE_PTR_USAGE.get_or_init(|| {
+  static MEM_LEAK: OnceLock<Regex> = OnceLock::new();
+  static DEREF_NULL_PTR: OnceLock<Regex> = OnceLock::new();
+  static DEREF_AFTER_FREE: OnceLock<Regex> = OnceLock::new();
+  let mem_leak = MEM_LEAK.get_or_init(|| Regex::new(r"error: memory leaked: alloc\d+").unwrap());
+  let deref_null_ptr =
+    DEREF_NULL_PTR.get_or_init(|| {
       Regex::new(r"error: Undefined Behavior: dereferencing pointer failed: null pointer is a dangling pointer").unwrap()
     });
+  let deref_after_free =
+    DEREF_AFTER_FREE.get_or_init(|| {
+      Regex::new(r"error: Undefined Behavior: pointer to alloc\d+ was dereferenced after this allocation got free").unwrap()
+    });
 
-  if re_mem_free.is_match(error) {
+  if mem_leak.is_match(error) {
     Err(MiriGuardError::MemoryFree(error.to_string()))
-  } else if re_ptr_usage.is_match(error) {
+  } else if deref_null_ptr.is_match(error) {
     Err(MiriGuardError::RawPointerUsage(error.to_string()))
+  } else if deref_after_free.is_match(error) {
+    if error.contains("libc::free(") {
+      Err(MiriGuardError::MemoryFree(error.to_string()))
+    } else {
+      Err(MiriGuardError::RawPointerUsage(error.to_string()))
+    }
   } else {
     Ok(())
   }

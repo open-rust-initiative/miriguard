@@ -38,7 +38,17 @@ fn crate_memory_deallocation() {
   let assert = Command::cargo_bin("miriguard")
     .unwrap()
     .current_dir("tests/memory_deallocation")
-    .arg("test")
+    .args(["test", "memory_leaking"])
+    .assert();
+
+  assert.failure().stderr(predicate::str::starts_with(
+    "Error: error with memory deallocation >>>",
+  ));
+
+  let assert = Command::cargo_bin("miriguard")
+    .unwrap()
+    .current_dir("tests/memory_deallocation")
+    .args(["test", "double_free"])
     .assert();
 
   assert.failure().stderr(predicate::str::starts_with(
@@ -52,6 +62,16 @@ fn crate_raw_point_validity() {
     .unwrap()
     .current_dir("tests/raw_point_validity")
     .args(["test", "initial"])
+    .assert();
+
+  assert.failure().stderr(predicate::str::starts_with(
+    "Error: error with using invalid raw pointer >>>",
+  ));
+
+  let assert = Command::cargo_bin("miriguard")
+    .unwrap()
+    .current_dir("tests/raw_point_validity")
+    .args(["test", "stack"])
     .assert();
 
   assert.failure().stderr(predicate::str::starts_with(

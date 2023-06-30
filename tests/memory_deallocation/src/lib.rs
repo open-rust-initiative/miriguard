@@ -1,17 +1,18 @@
+#![allow(dead_code)]
+
 #[cfg(test)]
 mod tests {
+  const BUF_SIZE: usize = 100;
+
   #[test]
-  fn free_memory() {
-    const BUF_SIZE: usize = 100;
-    unsafe {
-      let buf = libc::malloc(BUF_SIZE) as *mut libc::c_char;
+  fn memory_leaking() {
+    let _buf = unsafe { libc::malloc(BUF_SIZE) };
+  }
 
-      libc::free(buf as *mut libc::c_void);
-
-      if !buf.is_null() {
-        println!("{:?}", *buf);
-      }
-    }
-    assert!(true);
+  #[test]
+  fn double_free() {
+    let buf = unsafe { libc::malloc(BUF_SIZE) };
+    unsafe { libc::free(buf) };
+    unsafe { libc::free(buf) };
   }
 }
