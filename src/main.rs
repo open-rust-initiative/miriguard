@@ -1,7 +1,8 @@
+use clap::{Args, Parser, Subcommand, ValueEnum};
 use regex::Regex;
 use std::process::Command;
 use std::sync::OnceLock;
-use std::{env, process, str};
+use std::{process, str};
 use thiserror::Error;
 
 #[derive(Error, Debug)]
@@ -10,22 +11,53 @@ enum MiriGuardError {
   Cargo(String),
   #[error("{0}")]
   Miri(String),
-  #[error("`miriguard` needs to be called with a subcommand (`run`, `test`)")]
-  MissSubCmd,
-  #[error("unrecognized subcommand `{0}`")]
-  WrongSubCmd(String),
   #[error("error with using invalid raw pointer >>>>>\n{0}\n<<<<<")]
   RawPointerUsage(String),
   #[error("error with memory deallocation >>>>>\n{0}\n<<<<<")]
   MemoryFree(String),
 }
 
+#[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
+enum Mode {
+  Test,
+  Run,
+}
+
+#[derive(Parser)]
+#[command(author, version, about)]
+#[command(propagate_version = true)]
+struct Cli {
+  #[command(subcommand)]
+  command: Commands,
+}
+
+#[derive(Subcommand)]
+enum Commands {
+  Run(RunArgs),
+  Test(TestArgs),
+}
+
+#[derive(Args)]
+struct RunArgs {
+  #[arg(group = "run-target", long)]
+  bin: Option<String>,
+  #[arg(group = "run-target", long)]
+  example: Option<String>,
+}
+
+#[derive(Args)]
+struct TestArgs {
+  testname: Option<String>,
+}
+
 fn main() {
+  let config = Cli::parse();
+
   check_cargo().unwrap_or_else(|e| {
     eprintln!("Error: {e}");
     process::exit(1);
   });
-  check_and_exec_miri().unwrap_or_else(|e| {
+  check_and_exec_miri(config).unwrap_or_else(|e| {
     eprintln!("Error: {e}");
     process::exit(1);
   });
@@ -46,7 +78,7 @@ fn check_cargo() -> Result<(), MiriGuardError> {
   }
 }
 
-fn check_and_exec_miri() -> Result<(), MiriGuardError> {
+fn check_and_exec_miri(config: Cli) -> Result<(), MiriGuardError> {
   match Command::new("cargo")
     .args(["+nightly", "miri", "--version"])
     .output()
@@ -58,24 +90,35 @@ fn check_and_exec_miri() -> Result<(), MiriGuardError> {
           str::from_utf8(&out.stderr).unwrap().to_string(),
         ))
       } else {
-        let args: Vec<_> = env::args().skip(1).collect();
-        match args.get(0).map(|s| s.as_str()) {
-          Some("run") | Some("test") => exec_miri(args),
-          Some(s) => Err(MiriGuardError::WrongSubCmd(s.to_string())),
-          None => Err(MiriGuardError::MissSubCmd),
+        match &config.command {
+          Commands::Run(args) => miri_run(args),
+          Commands::Test(args) => miri_test(args),
         }
       }
     }
   }
 }
 
-fn exec_miri(args: Vec<String>) -> Result<(), MiriGuardError> {
-  let args: Vec<_> = ["+nightly", "miri"]
-    .into_iter()
-    .map(String::from)
-    .chain(args.into_iter())
-    .collect();
+fn miri_run(args: &RunArgs) -> Result<(), MiriGuardError> {
+  if let Some(bin) = &args.bin {
+    let args = ["+nightly", "miri", "run", "--bin", bin];
+    exec_miri(&args)?;
+  }
+  if let Some(example) = &args.example {
+    let args = ["+nightly", "miri", "run", "--example", example];
+    exec_miri(&args)?;
+  }
+  Ok(())
+}
 
+fn miri_test(args: &TestArgs) -> Result<(), MiriGuardError> {
+  match &args.testname {
+    None => exec_miri(&["+nightly", "miri", "test"]),
+    Some(name) => exec_miri(&["+nightly", "miri", "test", name]),
+  }
+}
+
+fn exec_miri(args: &[&str]) -> Result<(), MiriGuardError> {
   match Command::new("cargo").args(args).output() {
     Err(e) => Err(MiriGuardError::Miri(format!("{:?}: {}", e.kind(), e))),
     Ok(out) => {

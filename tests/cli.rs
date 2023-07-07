@@ -5,9 +5,7 @@ use predicates::prelude::predicate;
 fn miriguard_without_subcmd() {
   let assert = Command::cargo_bin("miriguard").unwrap().assert();
 
-  assert.failure().stderr(
-    "Error: `miriguard` needs to be called with a subcommand (`run`, `test`)\n".to_string(),
-  );
+  assert.failure().stderr(predicate::str::contains("Usage"));
 }
 
 #[test]
@@ -18,9 +16,7 @@ fn miriguard_with_unrecognized_subcmd() {
     .arg(subcmd)
     .assert();
 
-  assert
-    .failure()
-    .stderr(format!("Error: unrecognized subcommand `{subcmd}`\n"));
+  assert.failure().stderr(predicate::str::contains("Usage"));
 }
 
 #[test]
