@@ -125,3 +125,42 @@ fn test_return_stack_address() {
     "ERROR: [Raw Pointer Usage Error][Invalid usage of raw pointer]\n>>>>>\n",
   ));
 }
+
+#[test]
+fn run_multi_miri_tests_without_testname() {
+  let assert = Command::cargo_bin(PRG)
+    .unwrap()
+    .current_dir("tests/raw_point_validity")
+    .arg("test")
+    .assert();
+
+  assert.success().stderr(
+    predicate::str::contains("ERROR: [Raw Pointer Usage Error][Invalid usage of raw pointer]")
+      .count(2),
+  );
+}
+
+#[test]
+fn run_multi_miri_test_with_names() {
+  let assert = Command::cargo_bin(PRG)
+    .unwrap()
+    .current_dir("tests/raw_point_validity")
+    .args(["test", "stack", "uninitialized"])
+    .assert();
+
+  assert.success().stderr(
+    predicate::str::contains("ERROR: [Raw Pointer Usage Error][Invalid usage of raw pointer]")
+      .count(2),
+  );
+}
+
+#[test]
+fn unsupported_operation() {
+  let assert = Command::cargo_bin(PRG)
+    .unwrap()
+    .current_dir("tests/unsupported_operation")
+    .arg("run")
+    .assert();
+
+  assert.success().stderr("");
+}
