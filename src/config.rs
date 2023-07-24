@@ -27,5 +27,5 @@ pub struct RunArgs {
 
 #[derive(Args, Debug)]
 pub struct TestArgs {
-  pub testname: Option<String>,
+  pub testname: Vec<String>,
 }
