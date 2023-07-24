@@ -62,9 +62,10 @@ fn miri_test<F>(args: &TestArgs, f: &mut F) -> Result<(), MgError>
 where
   F: FnMut(Vec<Rule>) -> Result<(), MgError>,
 {
-  let test_names = match &args.testname {
-    None => get_test_list()?,
-    Some(names) => names.clone(),
+  let test_names = if args.testname.is_empty() {
+    get_test_list()?
+  } else {
+    args.testname.clone()
   };
   for test in &test_names {
     exec_miri_command(&["miri", "test", test], f)?;
